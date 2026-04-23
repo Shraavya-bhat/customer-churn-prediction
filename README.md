@@ -7,6 +7,7 @@ Built using:
 - Python
 - Scikit-learn
 - Streamlit (Web App)
+- Plotly
 
 ---
 

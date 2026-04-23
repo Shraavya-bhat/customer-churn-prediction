@@ -1,116 +1,163 @@
 import streamlit as st
 import pickle
 import pandas as pd
+import plotly.express as px
 
 # ---- CONFIG ----
 st.set_page_config(page_title="Churn Predictor", layout="wide")
 
-# ---- LOAD ----
+# ---- LOAD MODEL ----
 model = pickle.load(open("model/churn_model.pkl", "rb"))
 columns = pickle.load(open("model/columns.pkl", "rb"))
 
 # ---- STYLE ----
 st.markdown("""
 <style>
-.main {background-color: #0E1117;}
-h1 {text-align: center;}
-.result-box {
-    padding: 20px;
-    border-radius: 15px;
-    text-align: center;
-    font-size: 22px;
-    font-weight: bold;
+.block-container {padding-top: 2rem;}
+h1 {text-align: center; font-size: 42px;}
+.stButton>button {
+    background-color: #ff4b4b;
+    color: white;
+    border-radius: 10px;
+    height: 50px;
+    width: 100%;
+    font-size: 18px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # ---- TITLE ----
 st.title("🚀 Customer Churn Prediction System")
+st.caption("ML-powered churn prediction using Random Forest • Accuracy ~80%")
 
-# ---- LAYOUT ----
+st.markdown("---")
+
+# ---- CUSTOMER INFO ----
+st.markdown("## 👤 Customer Info")
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("👤 Customer Info")
-    gender = st.selectbox("Gender", ["Male", "Female"])
-    SeniorCitizen = st.selectbox("Senior Citizen", [0, 1])
-    Partner = st.selectbox("Partner", ["Yes", "No"])
-    Dependents = st.selectbox("Dependents", ["Yes", "No"])
-    tenure = st.slider("Tenure", 0, 72)
+    gender = st.radio("Gender", ["Male", "Female"])
+    senior = st.radio("Senior Citizen", ["No", "Yes"])
+    partner = st.radio("Partner", ["No", "Yes"])
 
 with col2:
-    st.subheader("📡 Service Details")
-    PhoneService = st.selectbox("Phone Service", ["Yes", "No"])
-    MultipleLines = st.selectbox("Multiple Lines", ["Yes", "No", "No phone service"])
-    InternetService = st.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
-    Contract = st.selectbox("Contract", ["Month-to-month", "One year", "Two year"])
-    PaymentMethod = st.selectbox("Payment Method", [
+    dependents = st.radio("Dependents", ["No", "Yes"])
+    tenure = st.slider("Tenure (months)", 0, 72, 12)
+
+st.markdown("---")
+
+# ---- SERVICES ----
+st.markdown("## 📡 Services")
+col3, col4 = st.columns(2)
+
+with col3:
+    internet = st.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
+    security = st.radio("Online Security", ["No", "Yes"])
+    backup = st.radio("Online Backup", ["No", "Yes"])
+
+with col4:
+    device = st.radio("Device Protection", ["No", "Yes"])
+    support = st.radio("Tech Support", ["No", "Yes"])
+    streaming = st.radio("Streaming Services", ["No", "Yes"])
+
+st.markdown("---")
+
+# ---- BILLING ----
+st.markdown("## 💳 Billing")
+col5, col6 = st.columns(2)
+
+with col5:
+    contract = st.selectbox("Contract Type", ["Month-to-month", "One year", "Two year"])
+    payment = st.selectbox("Payment Method", [
         "Electronic check", "Mailed check",
         "Bank transfer (automatic)", "Credit card (automatic)"
     ])
 
-st.subheader("💰 Billing Info")
-col3, col4 = st.columns(2)
-with col3:
-    MonthlyCharges = st.number_input("Monthly Charges", value=50.0)
-with col4:
-    TotalCharges = st.number_input("Total Charges", value=500.0)
+with col6:
+    monthly = st.number_input("Monthly Charges", value=70.0)
+    total = st.number_input("Total Charges", value=1000.0)
 
-# ---- INPUT ----
-input_dict = {
-    "gender": gender,
-    "SeniorCitizen": SeniorCitizen,
-    "Partner": Partner,
-    "Dependents": Dependents,
-    "tenure": tenure,
-    "PhoneService": PhoneService,
-    "MultipleLines": MultipleLines,
-    "InternetService": InternetService,
-    "OnlineSecurity": "Yes",
-    "OnlineBackup": "Yes",
-    "DeviceProtection": "Yes",
-    "TechSupport": "Yes",
-    "StreamingTV": "Yes",
-    "StreamingMovies": "Yes",
-    "Contract": Contract,
-    "PaperlessBilling": "Yes",
-    "PaymentMethod": PaymentMethod,
-    "MonthlyCharges": MonthlyCharges,
-    "TotalCharges": TotalCharges
-}
-
-input_df = pd.DataFrame([input_dict])
-input_df = pd.get_dummies(input_df)
-input_df = input_df.reindex(columns=columns, fill_value=0)
+st.markdown("---")
 
 # ---- PREDICT ----
 if st.button("🔍 Predict Churn"):
 
-    prediction = model.predict(input_df)[0]
-    probability = model.predict_proba(input_df)[0][1]
+    input_dict = {
+        "gender": gender,
+        "SeniorCitizen": 1 if senior == "Yes" else 0,
+        "Partner": partner,
+        "Dependents": dependents,
+        "tenure": tenure,
+        "PhoneService": "Yes",
+        "MultipleLines": "No",
+        "InternetService": internet,
+        "OnlineSecurity": security,
+        "OnlineBackup": backup,
+        "DeviceProtection": device,
+        "TechSupport": support,
+        "StreamingTV": streaming,
+        "StreamingMovies": streaming,
+        "Contract": contract,
+        "PaperlessBilling": "Yes",
+        "PaymentMethod": payment,
+        "MonthlyCharges": monthly,
+        "TotalCharges": total
+    }
+
+    df = pd.DataFrame([input_dict])
+    df = pd.get_dummies(df)
+    df = df.reindex(columns=columns, fill_value=0)
+
+    prediction = model.predict(df)[0]
+    prob = model.predict_proba(df)[0][1]
+
+    # ---- RESULT ----
+    st.markdown("## 🎯 Prediction Result")
+    colA, colB = st.columns([2,1])
+
+    with colA:
+        if prediction == 1:
+            st.error(f"⚠️ High Churn Risk ({prob:.2%})")
+        else:
+            st.success(f"✅ Low Churn Risk ({prob:.2%})")
+
+    with colB:
+        st.metric("Churn Probability", f"{prob:.2%}")
+
+    st.progress(float(prob))
 
     st.markdown("---")
-    
-    if prediction == 1:
-        st.markdown(
-            f"<div class='result-box' style='background:#ff4b4b;'>⚠️ HIGH CHURN RISK ({probability:.2%})</div>",
-            unsafe_allow_html=True
-        )
-    else:
-        st.markdown(
-            f"<div class='result-box' style='background:#00c853;'>✅ LOW CHURN RISK ({probability:.2%})</div>",
-            unsafe_allow_html=True
-        )
 
-    # ---- PROGRESS BAR ----
-    st.progress(float(probability))
+    # ---- EXPLANATION ----
+    st.subheader("🧠 Why this prediction?")
 
-    # ---- SUGGESTIONS ----
-    st.subheader("💡 Suggested Action")
+    if tenure < 12:
+        st.write("- Low tenure increases churn risk")
+    if contract == "Month-to-month":
+        st.write("- Month-to-month users churn more")
+    if monthly > 80:
+        st.write("- High monthly charges increase churn")
 
-    if probability > 0.6:
-        st.warning("Offer discount or retention plan immediately!")
-    elif probability > 0.4:
-        st.info("Engage customer with offers or support.")
-    else:
-        st.success("Customer is stable. Maintain service quality.")
+    st.markdown("---")
+
+    # ---- FEATURE IMPORTANCE ----
+    st.subheader("📊 Top Factors Affecting Prediction")
+
+    importance = model.feature_importances_
+    feat_df = pd.DataFrame({
+        "Feature": columns,
+        "Importance": importance
+    }).sort_values(by="Importance", ascending=False).head(10)
+
+    fig = px.bar(
+        feat_df,
+        x="Importance",
+        y="Feature",
+        orientation='h',
+        color="Importance",
+        color_continuous_scale="reds"
+    )
+
+    fig.update_layout(template="plotly_dark")
+    st.plotly_chart(fig, use_container_width=True)

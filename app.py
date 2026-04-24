@@ -13,22 +13,65 @@ columns = pickle.load(open("model/columns.pkl", "rb"))
 # ---- CUSTOM CSS ----
 st.markdown("""
 <style>
-.main {
-    padding: 2rem 4rem;
-}
+
+/* ===== PAGE ===== */
 .block-container {
-    max-width: 1100px;
+    max-width: 1150px;
     margin: auto;
+    padding-top: 2rem;
 }
+
+/* ===== SECTION CARD ===== */
 .section {
-    background: #111827;
-    padding: 20px;
-    border-radius: 12px;
+    background: linear-gradient(145deg, #0f172a, #020617);
+    padding: 28px;
+    border-radius: 18px;
+    margin-bottom: 35px;
+    box-shadow: 0 0 25px rgba(0,0,0,0.4);
+    transition: 0.3s;
+}
+
+.section:hover {
+    transform: translateY(-2px);
+}
+
+/* ===== HEADINGS ===== */
+h1 {
+    font-size: 42px !important;
+}
+h2 {
     margin-bottom: 20px;
 }
-h1, h2, h3 {
-    color: white;
+
+/* ===== INPUT SPACING ===== */
+div[data-baseweb="select"],
+div[data-baseweb="input"] {
+    margin-bottom: 18px;
 }
+
+/* ===== BUTTON ===== */
+.stButton button {
+    background: linear-gradient(90deg, #ff4b4b, #ff7b7b);
+    border-radius: 10px;
+    height: 45px;
+    width: 220px;
+    font-size: 16px;
+    font-weight: bold;
+    transition: 0.3s;
+}
+.stButton button:hover {
+    transform: scale(1.05);
+}
+
+/* ===== RESULT BOX ===== */
+.result-box {
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 20px;
+    text-align: center;
+    font-size: 18px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -41,9 +84,10 @@ st.markdown("---")
 # =========================
 # CUSTOMER INFO
 # =========================
+st.markdown('<div class="section">', unsafe_allow_html=True)
 st.markdown("## 👤 Customer Info")
 
-col1, col2 = st.columns(2)
+col1, col2 = st.columns(2, gap="large")
 
 with col1:
     gender = st.selectbox("Gender", ["Male", "Female"])
@@ -54,12 +98,15 @@ with col2:
     dependents = st.selectbox("Dependents", ["No", "Yes"])
     tenure = st.slider("Tenure (months)", 0, 72, 12)
 
+st.markdown('</div>', unsafe_allow_html=True)
+
 # =========================
 # SERVICES
 # =========================
+st.markdown('<div class="section">', unsafe_allow_html=True)
 st.markdown("## 📡 Services")
 
-col3, col4 = st.columns(2)
+col3, col4 = st.columns(2, gap="large")
 
 with col3:
     internet = st.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
@@ -71,12 +118,15 @@ with col4:
     support = st.selectbox("Tech Support", ["No", "Yes"])
     streaming = st.selectbox("Streaming (TV + Movies)", ["No", "Yes"])
 
+st.markdown('</div>', unsafe_allow_html=True)
+
 # =========================
 # BILLING
 # =========================
+st.markdown('<div class="section">', unsafe_allow_html=True)
 st.markdown("## 💳 Billing")
 
-col5, col6 = st.columns(2)
+col5, col6 = st.columns(2, gap="large")
 
 with col5:
     contract = st.selectbox("Contract Type", ["Month-to-month", "One year", "Two year"])
@@ -91,11 +141,13 @@ with col6:
     monthly = st.number_input("Monthly Charges", value=70.0)
     total = st.number_input("Total Charges", value=1000.0)
 
-st.markdown("---")
+st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================
-# PREDICT
+# PREDICT BUTTON
 # =========================
+st.markdown("<br>", unsafe_allow_html=True)
+
 if st.button("🔮 Predict Churn"):
 
     input_dict = {
@@ -149,6 +201,12 @@ if st.button("🔮 Predict Churn"):
 
     # ---- RESULT TEXT ----
     if prediction == 1:
-        st.error("⚠️ High Risk: Customer likely to churn")
+        st.markdown(
+            f'<div class="result-box" style="background:#3b0a0a;">⚠️ High Risk ({prob*100:.2f}%)</div>',
+            unsafe_allow_html=True
+        )
     else:
-        st.success("✅ Low Risk: Customer likely to stay")
+        st.markdown(
+            f'<div class="result-box" style="background:#0a3b1e;">✅ Low Risk ({prob*100:.2f}%)</div>',
+            unsafe_allow_html=True
+        )

@@ -1,197 +1,167 @@
 import streamlit as st
-import pickle
 import pandas as pd
-import plotly.graph_objects as go
+import pickle
+import plotly.express as px
+import numpy as np
 
-# ---- CONFIG ----
-st.set_page_config(page_title="Churn Predictor", layout="wide")
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(page_title="Churn Dashboard", layout="wide")
 
-# ---- LOAD MODEL ----
+# ---------------- LOAD MODEL ----------------
 model = pickle.load(open("model/churn_model.pkl", "rb"))
 columns = pickle.load(open("model/columns.pkl", "rb"))
 
-# ---- CSS ----
-st.markdown("""
-<style>
-.block-container {
-    max-width: 1100px;
-    margin: auto;
-    padding-top: 2rem;
-}
-.section {
-    background: #0f172a;
-    padding: 25px;
-    border-radius: 15px;
-    margin-bottom: 25px;
-}
-.stButton button {
-    width: 220px;
-    height: 45px;
-    border-radius: 10px;
-    font-weight: bold;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ---- TITLE ----
-st.title("🚀 Customer Churn Prediction System")
-st.caption("This app predicts whether a customer is likely to churn based on their service usage and billing behavior.")
+# ---------------- TITLE ----------------
+st.markdown("<h1 style='text-align:center;'>🚀 Customer Churn Dashboard</h1>", unsafe_allow_html=True)
+st.markdown("### Predict churn risk + view insights")
 
 st.markdown("---")
 
-# =========================
-# SAMPLE AUTO-FILL
-# =========================
-if st.button("⚡ Use Sample Customer"):
-    st.session_state.sample = True
-else:
-    st.session_state.sample = False
+# ---------------- SAMPLE DATA (for charts) ----------------
+# (Use your dataset here if you have one)
+@st.cache_data
+def load_data():
+    df = pd.read_csv("data/Telco-Customer-Churn.csv")
+    return df
 
-# =========================
-# BASIC INPUTS (SIMPLIFIED)
-# =========================
-st.markdown("## 🎯 Key Inputs")
+df = load_data()
 
+# ---------------- KPI SECTION ----------------
+col1, col2, col3, col4 = st.columns(4)
+
+churn_rate = (df['Churn'] == 'Yes').mean() * 100
+avg_charge = df['MonthlyCharges'].mean()
+total_customers = len(df)
+retention = 100 - churn_rate
+
+col1.metric("👥 Customers", total_customers)
+col2.metric("📉 Churn Rate", f"{churn_rate:.2f}%")
+col3.metric("💰 Avg Charges", f"${avg_charge:.2f}")
+col4.metric("📊 Retention", f"{retention:.2f}%")
+
+st.markdown("---")
+
+# ---------------- CHARTS ----------------
+col1, col2 = st.columns(2)
+
+with col1:
+    fig = px.histogram(df, x="Contract", color="Churn",
+                       title="Churn by Contract Type")
+    st.plotly_chart(fig, use_container_width=True)
+
+with col2:
+    churn_counts = df['Churn'].value_counts()
+    fig2 = px.pie(values=churn_counts.values,
+                  names=churn_counts.index,
+                  title="Churn Distribution",
+                  hole=0.5)
+    st.plotly_chart(fig2, use_container_width=True)
+
+st.markdown("---")
+
+# ---------------- USER INPUT ----------------
+st.header("🧾 Customer Prediction")
+
+# MAIN INPUTS (important)
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    tenure = st.slider("Tenure (months)", 0, 72, 12 if not st.session_state.sample else 5)
+    tenure = st.slider("Tenure (months)", 0, 72, 12)
 
 with col2:
-    monthly = st.slider("Monthly Charges", 0, 150, 70 if not st.session_state.sample else 95)
+    monthly = st.slider("Monthly Charges", 0.0, 200.0, 70.0)
 
 with col3:
     contract = st.selectbox("Contract Type",
-        ["Month-to-month", "One year", "Two year"],
-        index=0 if not st.session_state.sample else 0
-    )
+                            ["Month-to-month", "One year", "Two year"])
 
-# =========================
 # ADVANCED OPTIONS
-# =========================
 with st.expander("⚙️ Advanced Options"):
+    gender = st.selectbox("Gender", ["Male", "Female"])
+    senior = st.selectbox("Senior Citizen", [0, 1])
+    partner = st.selectbox("Partner", ["Yes", "No"])
+    dependents = st.selectbox("Dependents", ["Yes", "No"])
+    internet = st.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
+    security = st.selectbox("Online Security", ["Yes", "No"])
+    support = st.selectbox("Tech Support", ["Yes", "No"])
+    payment = st.selectbox("Payment Method",
+                           ["Electronic check", "Mailed check",
+                            "Bank transfer (automatic)", "Credit card (automatic)"])
 
-    col4, col5 = st.columns(2)
+# ---------------- AUTO FILL ----------------
+if st.button("⚡ Use Sample Customer"):
+    tenure = 24
+    monthly = 85
+    contract = "Month-to-month"
 
-    with col4:
-        gender = st.selectbox("Gender", ["Male", "Female"])
-        senior = st.selectbox("Senior Citizen", ["No", "Yes"])
-        partner = st.selectbox("Partner", ["No", "Yes"])
-        dependents = st.selectbox("Dependents", ["No", "Yes"])
-
-    with col5:
-        internet = st.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
-        security = st.selectbox("Online Security", ["No", "Yes"])
-        support = st.selectbox("Tech Support", ["No", "Yes"])
-        payment = st.selectbox("Payment Method", [
-            "Electronic check",
-            "Mailed check",
-            "Bank transfer (automatic)",
-            "Credit card (automatic)"
-        ])
-
-    total = st.slider("Total Charges", 0, 5000, 1000 if not st.session_state.sample else 300)
-
-# =========================
-# PREDICT
-# =========================
-st.markdown("<br>", unsafe_allow_html=True)
-
+# ---------------- PREDICT ----------------
 if st.button("🔮 Predict Churn"):
 
     input_dict = {
+        "tenure": tenure,
+        "MonthlyCharges": monthly,
+        "TotalCharges": tenure * monthly,
+        "Contract": contract,
         "gender": gender,
-        "SeniorCitizen": 1 if senior == "Yes" else 0,
+        "SeniorCitizen": senior,
         "Partner": partner,
         "Dependents": dependents,
-        "tenure": tenure,
-        "PhoneService": "Yes",
-        "MultipleLines": "No",
         "InternetService": internet,
         "OnlineSecurity": security,
-        "OnlineBackup": "No",
-        "DeviceProtection": "No",
         "TechSupport": support,
-        "StreamingTV": "No",
-        "StreamingMovies": "No",
-        "Contract": contract,
-        "PaperlessBilling": "Yes",
-        "PaymentMethod": payment,
-        "MonthlyCharges": monthly,
-        "TotalCharges": total
+        "PaymentMethod": payment
     }
 
-    df = pd.DataFrame([input_dict])
-    df = pd.get_dummies(df)
-    df = df.reindex(columns=columns, fill_value=0)
+    input_df = pd.DataFrame([input_dict])
+    input_df = pd.get_dummies(input_df)
 
-    prediction = model.predict(df)[0]
-    prob = model.predict_proba(df)[0][1]
+    input_df = input_df.reindex(columns=columns, fill_value=0)
 
-    st.markdown("## 🎯 Result")
+    prediction = model.predict(input_df)[0]
+    prob = model.predict_proba(input_df)[0][1] * 100
 
-    # =========================
-    # RISK LEVEL
-    # =========================
-    if prob > 0.7:
-        risk = "High Risk ⚠️"
-        color = "red"
-    elif prob > 0.4:
-        risk = "Medium Risk 🟡"
-        color = "orange"
+    st.markdown("---")
+
+    # ---------------- RESULT ----------------
+    st.header("🎯 Prediction Result")
+
+    if prob > 70:
+        st.error(f"⚠️ HIGH RISK ({prob:.2f}%)")
+        st.write("👉 Suggestion: Offer discount / retention call")
+
+    elif prob > 40:
+        st.warning(f"🟡 MEDIUM RISK ({prob:.2f}%)")
+        st.write("👉 Suggestion: Engage with offers")
+
     else:
-        risk = "Low Risk ✅"
-        color = "green"
+        st.success(f"✅ LOW RISK ({prob:.2f}%)")
+        st.write("👉 Suggestion: No action needed")
 
-    # =========================
-    # GAUGE
-    # =========================
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=prob * 100,
-        title={'text': "Churn Risk %"},
-        gauge={
-            'axis': {'range': [0, 100]},
-            'bar': {'color': color},
-            'steps': [
-                {'range': [0, 40], 'color': "green"},
-                {'range': [40, 70], 'color': "orange"},
-                {'range': [70, 100], 'color': "red"}
-            ]
-        }
-    ))
+    # ---------------- GAUGE ----------------
+    gauge = px.pie(values=[prob, 100-prob],
+                   names=["Churn", "Safe"],
+                   hole=0.7)
+    st.plotly_chart(gauge, use_container_width=True)
 
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown(f"### {risk} ({prob*100:.2f}%)")
-
-    # =========================
-    # REASONS (SMART LOGIC)
-    # =========================
+    # ---------------- REASON ----------------
+    st.subheader("🧠 Why this prediction?")
     reasons = []
 
     if contract == "Month-to-month":
-        reasons.append("Month-to-month contract")
+        reasons.append("Month-to-month contract increases churn risk")
     if monthly > 80:
         reasons.append("High monthly charges")
-    if support == "No":
-        reasons.append("No tech support")
-    if tenure < 6:
-        reasons.append("New customer")
+    if tenure < 12:
+        reasons.append("Low tenure")
 
     if reasons:
-        st.markdown("### 🧠 Why this prediction?")
         for r in reasons:
             st.write("•", r)
-
-    # =========================
-    # BUSINESS SUGGESTION
-    # =========================
-    st.markdown("### 💡 What should the company do?")
-
-    if prob > 0.7:
-        st.error("Offer discounts / retention calls immediately")
-    elif prob > 0.4:
-        st.warning("Engage customer with offers & support")
     else:
-        st.success("No action needed — customer is stable")
+        st.write("Stable customer profile")
+
+st.markdown("---")
+
+# ---------------- DATA TABLE ----------------
+st.subheader("📋 Sample Customers")
+st.dataframe(df.head(10))

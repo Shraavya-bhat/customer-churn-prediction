@@ -1,6 +1,12 @@
+import pickle
+import pandas as pd
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
+
+# Load model
+model = pickle.load(open("model/churn_model.pkl", "rb"))
+cols = pickle.load(open("model/columns.pkl", "rb"))
 
 st.set_page_config(page_title="Churn Dashboard", layout="wide")
 
@@ -57,9 +63,7 @@ with tab1:
 with tab2:
     st.subheader("🧠 Predict Customer Churn")
 
-    # --------------------------
-    # BASIC INPUTS
-    # --------------------------
+    # Inputs
     col1, col2 = st.columns(2)
 
     with col1:
@@ -71,17 +75,13 @@ with tab2:
     contract = st.selectbox("Contract Type",
                             ["Month-to-month", "One year", "Two year"])
 
-    # --------------------------
-    # ADVANCED OPTIONS
-    # --------------------------
+    # Advanced options
     with st.expander("⚙ Advanced Options"):
         internet = st.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
         security = st.selectbox("Online Security", ["Yes", "No"])
         support = st.selectbox("Tech Support", ["Yes", "No"])
 
-    # --------------------------
-    # SAMPLE BUTTON
-    # --------------------------
+    # Sample button
     if st.button("🔥 Use High Risk Sample"):
         tenure = 2
         monthly = 120.0
@@ -90,51 +90,38 @@ with tab2:
         support = "No"
         st.success("High-risk sample loaded!")
 
-    # --------------------------
-    # PREDICTION LOGIC
-    # --------------------------
+    # Prediction
     if st.button("🔮 Predict Churn"):
 
-        # base probability (fake model simulation)
-        prob = 0.3
+        # Create empty row
+        input_data = pd.DataFrame(columns=cols)
+        input_data.loc[0] = 0
 
-        # BUSINESS LOGIC BOOSTING
+        # Fill values
+        input_data["tenure"] = tenure
+        input_data["MonthlyCharges"] = monthly
+
+        # Contract encoding
         if contract == "Month-to-month":
-            prob += 0.25
-
-        if tenure < 12:
-            prob += 0.2
-
-        if monthly > 80:
-            prob += 0.15
-
-        if security == "No":
-            prob += 0.1
-
-        if support == "No":
-            prob += 0.1
-
-        # clamp value
-        prob = min(prob, 0.95)
-
-        percentage = int(prob * 100)
-
-        # --------------------------
-        # RESULT DISPLAY
-        # --------------------------
-        st.markdown("---")
-        st.subheader("🎯 Prediction Result")
-
-        if percentage >= 50:
-            st.error(f"⚠ HIGH RISK ({percentage}%)")
-        elif percentage >= 30:
-            st.warning(f"🟡 MEDIUM RISK ({percentage}%)")
+            input_data["Contract_Month-to-month"] = 1
+        elif contract == "One year":
+            input_data["Contract_One year"] = 1
         else:
-            st.success(f"✅ LOW RISK ({percentage}%)")
+            input_data["Contract_Two year"] = 1
 
-        # --------------------------
-        # DONUT CHART
-        # --------------------------
+        # Prediction
+        prediction = model.predict_proba(input_data)[0][1]
+        percentage = prediction * 100
+
+        # Risk label
+        if prediction > 0.6:
+            st.error(f"HIGH RISK ({percentage:.2f}%)")
+        elif prediction > 0.4:
+            st.warning(f"MEDIUM RISK ({percentage:.2f}%)")
+        else:
+            st.success(f"LOW RISK ({percentage:.2f}%)")
+
+        # Donut chart
         fig = go.Figure(go.Pie(
             values=[percentage, 100 - percentage],
             labels=["Churn Risk", "Safe"],
@@ -142,15 +129,13 @@ with tab2:
         ))
         st.plotly_chart(fig, use_container_width=True)
 
-        # --------------------------
-        # EXPLANATION + ACTION
-        # --------------------------
+        # Explanation
         col1, col2 = st.columns([2, 1])
 
         with col1:
             st.markdown("### 🧠 Why this result?")
-
             reasons = []
+
             if contract == "Month-to-month":
                 reasons.append("Flexible contract → higher churn")
 
@@ -176,15 +161,4 @@ with tab2:
             else:
                 st.info("Customer is stable")
 
-        # --------------------------
-        # SIMPLE EXPLANATION
-        # --------------------------
-        st.markdown("---")
-        st.markdown("""
-### 📘 How this works
-
-- Model learns patterns from past customers  
-- Uses features like tenure, charges, contract  
-- Predicts probability of churn  
-- Higher % = higher risk of leaving  
-""")
+        
